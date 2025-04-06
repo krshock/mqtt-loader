@@ -193,7 +193,7 @@ func statsPozoTopic(startdate string, endDate string, topicId string) {
 	contadorErrores := int64(0)
 	contadorLineas := int64(0)
 
-	csvPath := fmt.Sprintf("./stats-daily-%s.csv", topicId)
+	csvPath := fmt.Sprintf("./csv_data/stats-daily-%s.csv", topicId)
 	csvFile, err := os.Create(csvPath)
 	if err != nil {
 		log.Fatalf("Cannot create file %s", csvPath)

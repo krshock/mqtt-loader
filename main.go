@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -59,9 +60,8 @@ func CountTopics(_topic string) {
 }*/
 
 func main() {
-	pool := pg.ObtenerPoolSarcomLocal()
-	//scanPozoFile(time.Now(), "8d117b00-137d-499c-9d6f-42dd43004f32")
-	//scanPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
+	//pool := pg.ObtenerPoolSarcomLocal()
+	//statsPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
 	/*scanPozoTopic(pool, "2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
@@ -70,7 +70,14 @@ func main() {
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")*/
-
+	statsPozoTopic("2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
+	statsPozoTopic("2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
+	statsPozoTopic("2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
+	statsPozoTopic("2024-06-19", "2025-03-31", "528a736b-a589-497a-9e9f-4bb5179d8ff2")
+	statsPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
+	statsPozoTopic("2024-06-19", "2025-03-31", "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
+	statsPozoTopic("2024-06-19", "2025-03-31", "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
+	statsPozoTopic("2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
 }
 
 func scanPozoTopic(pool *pgxpool.Pool, startdate string, endDate string, topicId string) {
@@ -162,6 +169,139 @@ func scanPozoFile(pool *pgxpool.Pool, date time.Time, topicId string, flagsMapSi
 		}
 		nlineas = nlineas + 1
 	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return int64(contadoErrores), int64(nlineas)
+}
+
+func statsPozoTopic(startdate string, endDate string, topicId string) {
+	log.Println("==================================================================================")
+	log.Printf("Topic: %v\n", topicId)
+	start, err := time.Parse(time.DateOnly, startdate)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//end := time.Now() //start.AddDate(0, 1, 0)
+	end, err := time.Parse(time.DateOnly, endDate)
+	if err != nil {
+		log.Fatal(err)
+	}
+	//log.Printf("Rango fechas: %v %v\n", start, end)
+	contadorErrores := int64(0)
+	contadorLineas := int64(0)
+
+	csvPath := fmt.Sprintf("./stats-daily-%s.csv", topicId)
+	csvFile, err := os.Create(csvPath)
+	if err != nil {
+		log.Fatalf("Cannot create file %s", csvPath)
+	}
+	defer csvFile.Close()
+	csvWriter := csv.NewWriter(csvFile)
+	csvWriter.Write([]string{
+		"Topic",
+		"Fecha",
+		"Lineas",
+		"FC Ok",
+		"NC Flags",
+	})
+	csvWriter.Flush()
+
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		//fmt.Println(d.Format("2006-01-02"))
+
+		nerrores, nlineas := statsPozoFile(d, topicId, csvWriter)
+		contadorErrores = contadorErrores + nerrores
+		contadorLineas = contadorLineas + nlineas
+	}
+
+	log.Printf("Registros %v", contadorLineas)
+	log.Printf("Errores %v", contadorErrores)
+	//log.Printf("topics count: %+v\n", topicsMap)
+}
+
+func statsPozoFile(date time.Time, topicId string, csvWriter *csv.Writer) (int64, int64) {
+	filePath := fmt.Sprintf("./mqttdata/mqtt-cAzDWt8-%s.0.jsonl", date.Format(time.DateOnly))
+	//log.Println("filepath: ", filePath)
+	log.Printf(">>> %v\n", date.Format(time.DateOnly))
+	flagsMapSinCero := make(map[string]int64)
+	flagsMapConCeros := make(map[string]int64)
+	file, err := os.Open(filePath)
+	if err != nil {
+		//log.Fatal(err)
+		//log.Printf("Archivo no encontrado: %s", filePath)
+		csvWriter.Write([]string{
+			topicId,
+			date.Format(time.DateOnly),
+			fmt.Sprintf("%v", 0),
+			fmt.Sprintf("%v", true),
+			"",
+		})
+		return 0, 0
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	nlineas := int64(0)
+	contadoErrores := int64(0)
+	for scanner.Scan() {
+		jsonSrc := scanner.Text()
+		var medicionMqtt MedicionPozoMqtt
+		err := json.Unmarshal([]byte(jsonSrc), &medicionMqtt)
+		if err != nil {
+			contadoErrores = contadoErrores + 1
+			//log.Printf("ERROR MEDICION JSON2: %v %v %v\n", nlineas, err, jsonSrc)
+			continue
+		}
+		if !strings.Contains(medicionMqtt.Message.Topic, topicId) {
+			continue
+		}
+		var body BodyJsonMedicionPozo
+		err = json.Unmarshal([]byte(medicionMqtt.Message.Body), &body)
+		if err != nil {
+			continue
+		}
+		var m = make(map[string]interface{})
+		for _, x := range body.SensorDatas {
+			m[x.Flag] = x.Value
+			CountFlag(&flagsMapConCeros, x.Flag)
+			if x.Value != 0 {
+				CountFlag(&flagsMapSinCero, x.Flag)
+			}
+		}
+		if _, ok := m["EXTPWR"]; !ok {
+			continue
+		}
+		nlineas = nlineas + 1
+	}
+	countOk := true
+	for _, v := range flagsMapSinCero {
+		if v != nlineas {
+			countOk = false
+		}
+	}
+	if countOk {
+		log.Println("FLAGS COUNT :OK ")
+	} else {
+		log.Println("FLAGS COUNT: NOOK ", topicId)
+	}
+	log.Printf("SIN CEROS flags count: %+v\n", flagsMapSinCero)
+	log.Printf("CON CEROS flags count: %+v\n", flagsMapConCeros)
+	csvWriter.Write([]string{
+		topicId,
+		date.Format(time.DateOnly),
+		fmt.Sprintf("%v", nlineas),
+		fmt.Sprintf("%v", countOk),
+		fmt.Sprintf("%v", flagsMapSinCero),
+	})
+	/*
+		"Topic",
+		"Fecha",
+		"Lineas",
+		"FC Ok",
+		"NC Flags",*/
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)

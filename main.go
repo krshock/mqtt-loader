@@ -47,6 +47,37 @@ func CountFlag(flagsMap *map[string]int64, _flag string) {
 	}
 }
 
+func MinFlagF(flagsMap *map[string]float64, _flag string, valueF float64) {
+	fval, ok := (*flagsMap)[_flag]
+	if !ok {
+		(*flagsMap)[_flag] = valueF
+	} else {
+		if valueF < fval {
+			(*flagsMap)[_flag] = valueF
+		}
+	}
+}
+
+func MaxFlagF(flagsMap *map[string]float64, _flag string, valueF float64) {
+	fval, ok := (*flagsMap)[_flag]
+	if !ok {
+		(*flagsMap)[_flag] = valueF
+	} else {
+		if valueF > fval {
+			(*flagsMap)[_flag] = valueF
+		}
+	}
+}
+
+func GetFlagF(flagsMap *map[string]float64, _flag string) string {
+	fval, ok := (*flagsMap)[_flag]
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", fval)
+
+}
+
 /*
 var topicsMap = make(map[string]int64)
 
@@ -59,25 +90,27 @@ func CountTopics(_topic string) {
 	}
 }*/
 
+var writeToPostgres = false
+
 func main() {
-	//pool := pg.ObtenerPoolSarcomLocal()
+	pool := pg.ObtenerPoolSarcomLocal()
 	//statsPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
-	/*scanPozoTopic(pool, "2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
+	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "528a736b-a589-497a-9e9f-4bb5179d8ff2")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
-	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")*/
-	statsPozoTopic("2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
-	statsPozoTopic("2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
-	statsPozoTopic("2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
-	statsPozoTopic("2024-06-19", "2025-03-31", "528a736b-a589-497a-9e9f-4bb5179d8ff2")
-	statsPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
-	statsPozoTopic("2024-06-19", "2025-03-31", "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
-	statsPozoTopic("2024-06-19", "2025-03-31", "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
-	statsPozoTopic("2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
+	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "528a736b-a589-497a-9e9f-4bb5179d8ff2")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
+	//statsPozoTopic("2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
 }
 
 func scanPozoTopic(pool *pgxpool.Pool, startdate string, endDate string, topicId string) {
@@ -114,7 +147,7 @@ func scanPozoTopic(pool *pgxpool.Pool, startdate string, endDate string, topicId
 
 func scanPozoFile(pool *pgxpool.Pool, date time.Time, topicId string, flagsMapSinCero *map[string]int64, flagsMapConCeros *map[string]int64) (int64, int64) {
 	filePath := fmt.Sprintf("./mqttdata/mqtt-cAzDWt8-%s.0.jsonl", date.Format(time.DateOnly))
-	//log.Println("filepath: ", filePath)
+	log.Println("filepath: ", filePath)
 	file, err := os.Open(filePath)
 	if err != nil {
 		//log.Fatal(err)
@@ -147,7 +180,6 @@ func scanPozoFile(pool *pgxpool.Pool, date time.Time, topicId string, flagsMapSi
 			continue
 		}
 		//log.Printf("%+v\n", medicionMqtt)
-		//log.Printf("%v %s %+v\n", time.Unix(medicionMqtt.Timestamp/1000, 0), medicionMqtt.Message.Topic, body)
 		//ti, _ := strconv.Atoi(body.Time)
 		//t := time.Unix(int64(ti), 0)
 		//log.Printf("%v topic: %v time:%v time2:%v\n", nlineas, medicionMqtt.Message.Topic, time.Unix(medicionMqtt.Timestamp/1000, 0), t)
@@ -162,10 +194,14 @@ func scanPozoFile(pool *pgxpool.Pool, date time.Time, topicId string, flagsMapSi
 		if _, ok := m["EXTPWR"]; !ok {
 			continue
 		}
-		_, err = pg.InsertMqttPozo(context.Background(), pool, medicionMqtt.Id, medicionMqtt.Message.Topic, m, time.Unix(medicionMqtt.Timestamp/1000, 0))
-		if err != nil {
-			log.Printf("Error al insertar: %v\n", err)
-			contadoErrores = contadoErrores + 1
+		//log.Printf("%v %s %+v\n", time.Unix(medicionMqtt.Timestamp/1000, 0).Add(time.Hour*4), medicionMqtt.Message.Topic, m)
+
+		if writeToPostgres {
+			_, err = pg.InsertMqttPozo(context.Background(), pool, medicionMqtt.Id, medicionMqtt.Message.Topic, m, time.Unix(medicionMqtt.Timestamp/1000, 0).Add(time.Hour*4))
+			if err != nil {
+				log.Printf("Error al insertar: %v\n", err)
+				contadoErrores = contadoErrores + 1
+			}
 		}
 		nlineas = nlineas + 1
 	}
@@ -206,6 +242,16 @@ func statsPozoTopic(startdate string, endDate string, topicId string) {
 		"Lineas",
 		"FC Ok",
 		"NC Flags",
+		"AI0 Min",
+		"AI0 Max",
+		"COUNT Min",
+		"COUNT Max",
+		"COUNT1 Min",
+		"COUNT1 Max",
+		"AI1 Min",
+		"AI1 Max",
+		"EXTPWR Min",
+		"EXTPWR Max",
 	})
 	csvWriter.Flush()
 
@@ -215,6 +261,7 @@ func statsPozoTopic(startdate string, endDate string, topicId string) {
 		nerrores, nlineas := statsPozoFile(d, topicId, csvWriter)
 		contadorErrores = contadorErrores + nerrores
 		contadorLineas = contadorLineas + nlineas
+		csvWriter.Flush()
 	}
 
 	log.Printf("Registros %v", contadorLineas)
@@ -228,6 +275,8 @@ func statsPozoFile(date time.Time, topicId string, csvWriter *csv.Writer) (int64
 	log.Printf(">>> %v\n", date.Format(time.DateOnly))
 	flagsMapSinCero := make(map[string]int64)
 	flagsMapConCeros := make(map[string]int64)
+	flagsMin := make(map[string]float64)
+	flagsMax := make(map[string]float64)
 	file, err := os.Open(filePath)
 	if err != nil {
 		//log.Fatal(err)
@@ -271,6 +320,27 @@ func statsPozoFile(date time.Time, topicId string, csvWriter *csv.Writer) (int64
 				CountFlag(&flagsMapSinCero, x.Flag)
 			}
 		}
+
+		if val, ok := m["AI0"]; ok {
+			MinFlagF(&flagsMin, "AI0", val.(float64))
+			MaxFlagF(&flagsMax, "AI0", val.(float64))
+		}
+		if val, ok := m["AI1"]; ok {
+			MinFlagF(&flagsMin, "AI1", val.(float64))
+			MaxFlagF(&flagsMax, "AI1", val.(float64))
+		}
+		if val, ok := m["COUNT"]; ok {
+			MinFlagF(&flagsMin, "COUNT", val.(float64))
+			MaxFlagF(&flagsMax, "COUNT", val.(float64))
+		}
+		if val, ok := m["COUNT1"]; ok {
+			MinFlagF(&flagsMin, "COUNT1", val.(float64))
+			MaxFlagF(&flagsMax, "COUNT1", val.(float64))
+		}
+		if val, ok := m["EXTPWR"]; ok {
+			MinFlagF(&flagsMin, "EXTPWR", val.(float64))
+			MaxFlagF(&flagsMax, "EXTPWR", val.(float64))
+		}
 		if _, ok := m["EXTPWR"]; !ok {
 			continue
 		}
@@ -295,6 +365,16 @@ func statsPozoFile(date time.Time, topicId string, csvWriter *csv.Writer) (int64
 		fmt.Sprintf("%v", nlineas),
 		fmt.Sprintf("%v", countOk),
 		fmt.Sprintf("%v", flagsMapSinCero),
+		GetFlagF(&flagsMin, "AI0"),
+		GetFlagF(&flagsMax, "AI0"),
+		GetFlagF(&flagsMin, "COUNT"),
+		GetFlagF(&flagsMax, "COUNT"),
+		GetFlagF(&flagsMin, "COUNT1"),
+		GetFlagF(&flagsMax, "COUNT1"),
+		GetFlagF(&flagsMin, "AI1"),
+		GetFlagF(&flagsMax, "AI1"),
+		GetFlagF(&flagsMin, "EXTPWR"),
+		GetFlagF(&flagsMax, "EXTPWR"),
 	})
 	/*
 		"Topic",

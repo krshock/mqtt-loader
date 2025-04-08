@@ -93,9 +93,13 @@ func CountTopics(_topic string) {
 var writeToPostgres = false
 
 func main() {
+	//ScanPozosData()
+	StatsPozosData()
+}
+
+func ScanPozosData() {
 	pool := pg.ObtenerPoolSarcomLocal()
-	//statsPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
-	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
+	defer pool.Close()
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "528a736b-a589-497a-9e9f-4bb5179d8ff2")
@@ -103,14 +107,20 @@ func main() {
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "51c4faf3-48d1-44bf-9791-713d172b645e")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "528a736b-a589-497a-9e9f-4bb5179d8ff2")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "8d117b00-137d-499c-9d6f-42dd43004f32")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
-	//statsPozoTopic("2024-06-19", "2025-03-31", "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
+
+}
+
+func StatsPozosData() {
+	fechaDesde := "2024-06-19"
+	fechaHasta := "2025-04-08"
+	statsPozoTopic(fechaDesde, fechaHasta, "51c4faf3-48d1-44bf-9791-713d172b645e")
+	statsPozoTopic(fechaDesde, fechaHasta, "625396c8-acc0-49fa-a81f-6cd7bc951575")
+	statsPozoTopic(fechaDesde, fechaHasta, "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
+	statsPozoTopic(fechaDesde, fechaHasta, "528a736b-a589-497a-9e9f-4bb5179d8ff2")
+	statsPozoTopic(fechaDesde, fechaHasta, "8d117b00-137d-499c-9d6f-42dd43004f32")
+	statsPozoTopic(fechaDesde, fechaHasta, "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
+	statsPozoTopic(fechaDesde, fechaHasta, "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
+	statsPozoTopic(fechaDesde, fechaHasta, "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
 }
 
 func scanPozoTopic(pool *pgxpool.Pool, startdate string, endDate string, topicId string) {
@@ -230,7 +240,7 @@ func statsPozoTopic(startdate string, endDate string, topicId string) {
 	contadorLineas := int64(0)
 
 	csvPath := fmt.Sprintf("./csv_data/stats-daily-%s.csv", topicId)
-	csvFile, err := os.Create(csvPath)
+	csvFile, err := os.Create(csvPath) //deberia pisarlos archivos
 	if err != nil {
 		log.Fatalf("Cannot create file %s", csvPath)
 	}
@@ -272,7 +282,7 @@ func statsPozoTopic(startdate string, endDate string, topicId string) {
 func statsPozoFile(date time.Time, topicId string, csvWriter *csv.Writer) (int64, int64) {
 	filePath := fmt.Sprintf("./mqttdata/mqtt-cAzDWt8-%s.0.jsonl", date.Format(time.DateOnly))
 	//log.Println("filepath: ", filePath)
-	log.Printf(">>> %v\n", date.Format(time.DateOnly))
+	//log.Printf(">>> %v\n", date.Format(time.DateOnly))
 	flagsMapSinCero := make(map[string]int64)
 	flagsMapConCeros := make(map[string]int64)
 	flagsMin := make(map[string]float64)
@@ -352,13 +362,15 @@ func statsPozoFile(date time.Time, topicId string, csvWriter *csv.Writer) (int64
 			countOk = false
 		}
 	}
-	if countOk {
-		log.Println("FLAGS COUNT :OK ")
-	} else {
-		log.Println("FLAGS COUNT: NOOK ", topicId)
-	}
-	log.Printf("SIN CEROS flags count: %+v\n", flagsMapSinCero)
-	log.Printf("CON CEROS flags count: %+v\n", flagsMapConCeros)
+	/*
+		if countOk {
+			log.Println("FLAGS COUNT :OK ")
+		} else {
+			log.Println("FLAGS COUNT: NOOK ", topicId)
+		}
+		log.Printf("SIN CEROS flags count: %+v\n", flagsMapSinCero)
+		log.Printf("CON CEROS flags count: %+v\n", flagsMapConCeros)*/
+
 	csvWriter.Write([]string{
 		topicId,
 		date.Format(time.DateOnly),

@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func ObtenerPoolSarcomLocal() *pgxpool.Pool {
+func ObtenerPoolSarcom() *pgxpool.Pool {
 
 	dbconfig, err := pgxpool.ParseConfig(os.Getenv("SARCOM_PG_CONFIG"))
 	if err != nil {
@@ -22,7 +22,7 @@ func ObtenerPoolSarcomLocal() *pgxpool.Pool {
 	dbconfig.MaxConnLifetime = time.Hour * 1
 	dbconfig.MaxConnIdleTime = time.Minute * 30
 	dbconfig.HealthCheckPeriod = time.Minute
-	dbconfig.ConnConfig.ConnectTimeout = time.Second * 5
+	dbconfig.ConnConfig.ConnectTimeout = time.Second * 30
 
 	connPool, err := pgxpool.NewWithConfig(context.Background(), dbconfig)
 
@@ -39,28 +39,33 @@ func ObtenerPoolSarcomLocal() *pgxpool.Pool {
 }
 
 type PozoConfig struct {
-	Uuid           string
 	CodigoObra     string
 	NombreEstacion string
+	Topic          string
+	Estado         int
 }
 
-/*
-func ListarConfiguracionesPozos(conn *pgxpool.Conn) (*[]PozoConfig, error) {
-
-	rows, err := conn.Query(context.Background(), "select id, codigo_obra , nombre_estacion from pozos_config where cod_cliente = 'verfrut'", args)
+func GetPozoConfig(pool *pgxpool.Pool, codigoObra string) (*PozoConfig, error) {
+	conn, err := pool.Acquire(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer conn.Release()
 
-	var pozosConfig *[]PozoConfig = new([]PozoConfig)
-
-	for rows.Next() {
-
+	args := pgx.NamedArgs{
+		"codigoObra": codigoObra,
 	}
+	pozo := &PozoConfig{}
+	err = conn.QueryRow(context.Background(),
+		`select codigo_obra, nombre_estacion, topic, estado
+		from pozos_config pc 
+		where pc.codigo_obra = @codigoObra`, args).Scan(&pozo.CodigoObra, &pozo.NombreEstacion, &pozo.Topic, &pozo.Estado)
 
-	return pozosConfig, nil
-}*/
+	if err != nil {
+		return nil, err
+	}
+	return pozo, nil
+}
 
 func InsertMqttPozo(ctx context.Context, pool *pgxpool.Pool, mqttId string, topic string, payload map[string]interface{}, ts time.Time) (int64, error) {
 	conn, err := pool.Acquire(ctx)

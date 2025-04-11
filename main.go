@@ -94,11 +94,11 @@ var writeToPostgres = false
 
 func main() {
 	//ScanPozosData()
-	StatsPozosData()
+	PozosReporteDiario()
 }
 
 func ScanPozosData() {
-	pool := pg.ObtenerPoolSarcomLocal()
+	pool := pg.ObtenerPoolSarcom()
 	defer pool.Close()
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "625396c8-acc0-49fa-a81f-6cd7bc951575")
 	scanPozoTopic(pool, "2024-06-19", "2025-03-31", "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
@@ -110,17 +110,22 @@ func ScanPozosData() {
 
 }
 
-func StatsPozosData() {
-	fechaDesde := "2024-06-19"
+func PozosReporteDiario() {
+	pool := pg.ObtenerPoolSarcom()
+	defer pool.Close()
+	fechaDesde := "2025-04-01"
 	fechaHasta := "2025-04-08"
-	statsPozoTopic(fechaDesde, fechaHasta, "51c4faf3-48d1-44bf-9791-713d172b645e")
-	statsPozoTopic(fechaDesde, fechaHasta, "625396c8-acc0-49fa-a81f-6cd7bc951575")
-	statsPozoTopic(fechaDesde, fechaHasta, "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
-	statsPozoTopic(fechaDesde, fechaHasta, "528a736b-a589-497a-9e9f-4bb5179d8ff2")
-	statsPozoTopic(fechaDesde, fechaHasta, "8d117b00-137d-499c-9d6f-42dd43004f32")
-	statsPozoTopic(fechaDesde, fechaHasta, "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
-	statsPozoTopic(fechaDesde, fechaHasta, "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
-	statsPozoTopic(fechaDesde, fechaHasta, "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
+	PozoResumenByObra(pool, fechaDesde, fechaHasta, "OB-0703-570")
+	/*
+		statsPozoTopic(fechaDesde, fechaHasta, "51c4faf3-48d1-44bf-9791-713d172b645e")
+		statsPozoTopic(fechaDesde, fechaHasta, "625396c8-acc0-49fa-a81f-6cd7bc951575")
+		statsPozoTopic(fechaDesde, fechaHasta, "5c1b28f2-4e44-4009-8fbc-964fa7a0c957")
+		statsPozoTopic(fechaDesde, fechaHasta, "528a736b-a589-497a-9e9f-4bb5179d8ff2")
+		statsPozoTopic(fechaDesde, fechaHasta, "8d117b00-137d-499c-9d6f-42dd43004f32")
+		statsPozoTopic(fechaDesde, fechaHasta, "7267b1c8-81c9-4cfb-b6e9-ad2695cf8279")
+		statsPozoTopic(fechaDesde, fechaHasta, "ea96ae4e-9822-4da2-95b9-4c0bcbd95d32")
+		statsPozoTopic(fechaDesde, fechaHasta, "a1fa8029-7dd2-47b6-a3ae-627e24a9956a")
+	*/
 }
 
 func scanPozoTopic(pool *pgxpool.Pool, startdate string, endDate string, topicId string) {
@@ -223,23 +228,38 @@ func scanPozoFile(pool *pgxpool.Pool, date time.Time, topicId string, flagsMapSi
 	return int64(contadoErrores), int64(nlineas)
 }
 
-func statsPozoTopic(startdate string, endDate string, topicId string) {
+func PozoResumenByObra(pool *pgxpool.Pool, fechaDesde string, fechaHasta string, codigoObra string) {
 	log.Println("==================================================================================")
-	log.Printf("Topic: %v\n", topicId)
-	start, err := time.Parse(time.DateOnly, startdate)
+	log.Printf("Codigo Obra: %v\n", codigoObra)
+	desde, err := time.Parse(time.DateOnly, fechaDesde)
 	if err != nil {
 		log.Fatal(err)
 	}
 	//end := time.Now() //start.AddDate(0, 1, 0)
-	end, err := time.Parse(time.DateOnly, endDate)
+	hasta, err := time.Parse(time.DateOnly, fechaHasta)
 	if err != nil {
 		log.Fatal(err)
 	}
 	//log.Printf("Rango fechas: %v %v\n", start, end)
+
+	pozoCfg, err := pg.GetPozoConfig(pool, codigoObra)
+	if err != nil {
+		log.Printf("Error obteniendo configuracion de %s\n%v\n", codigoObra, err)
+		return
+	}
+	if pozoCfg == nil {
+		log.Printf("No existe configuracion para el pozo %s\n", codigoObra)
+		return
+	}
+	if pozoCfg.Estado == 0 {
+		log.Printf("Pozo desactivado: %s - %s\n", codigoObra, pozoCfg.NombreEstacion)
+		return
+	}
+
 	contadorErrores := int64(0)
 	contadorLineas := int64(0)
 
-	csvPath := fmt.Sprintf("./csv_data/stats-daily-%s.csv", topicId)
+	csvPath := fmt.Sprintf("./csv_data/resumen-diario-%s_%s_%s.csv", codigoObra, fechaDesde, fechaHasta)
 	csvFile, err := os.Create(csvPath) //deberia pisarlos archivos
 	if err != nil {
 		log.Fatalf("Cannot create file %s", csvPath)
@@ -265,10 +285,10 @@ func statsPozoTopic(startdate string, endDate string, topicId string) {
 	})
 	csvWriter.Flush()
 
-	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+	for d := desde; !d.After(hasta); d = d.AddDate(0, 0, 1) {
 		//fmt.Println(d.Format("2006-01-02"))
-
-		nerrores, nlineas := statsPozoFile(d, topicId, csvWriter)
+		log.Printf("%v fecha: %v\n", pozoCfg.NombreEstacion, d)
+		nerrores, nlineas := PozoResumenDiario(d, pozoCfg.Topic, csvWriter)
 		contadorErrores = contadorErrores + nerrores
 		contadorLineas = contadorLineas + nlineas
 		csvWriter.Flush()
@@ -279,7 +299,7 @@ func statsPozoTopic(startdate string, endDate string, topicId string) {
 	//log.Printf("topics count: %+v\n", topicsMap)
 }
 
-func statsPozoFile(date time.Time, topicId string, csvWriter *csv.Writer) (int64, int64) {
+func PozoResumenDiario(date time.Time, topicId string, csvWriter *csv.Writer) (int64, int64) {
 	filePath := fmt.Sprintf("./mqttdata/mqtt-cAzDWt8-%s.0.jsonl", date.Format(time.DateOnly))
 	//log.Println("filepath: ", filePath)
 	//log.Printf(">>> %v\n", date.Format(time.DateOnly))
